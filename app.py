@@ -364,10 +364,9 @@ def feed(symbol,timeframe):
     previous = len(status.index)-1
     print('checking current position on hold...')
     print(tabulate(status, headers = 'keys', tablefmt = 'grid'))
-    print("checking for buy and sell signals")
     posim = symbol.replace('/','')
-    print(posim)
     amt = 0
+    print("checking for buy and sell signals")
     for i in status.index:
         if status['symbol'][i] == posim:
             amt = float(status['positionAmt'][i])
