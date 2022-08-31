@@ -370,21 +370,21 @@ def feed(symbol,timeframe):
     amt = 0
     for i in status.index:
         if status['symbol'][i] == posim:
-            amt = (status['positionAmt'][i])
+            amt = float(status['positionAmt'][i])
             print(amt)
         # NO Position
-        if not status.empty and amt != 0 and status["symbol"][previous] == posim :
+        if not status.empty and amt != 0 :
             is_in_position = True
         else: 
             is_in_position = False
             is_in_Short = False
             is_in_Long = False
         # Long position
-        if is_in_position and float(status["positionAmt"][previous]) > 0 and status["symbol"][previous] == posim :
+        if is_in_position and amt > 0  :
             is_in_Long = True
             is_in_Short = False
         # Short position
-        if is_in_position and float(status["positionAmt"][previous]) < 0 and status["symbol"][previous] == posim :
+        if is_in_position and amt < 0  :
             is_in_Short = True
             is_in_Long = False  
         if df['buy'][last] :
