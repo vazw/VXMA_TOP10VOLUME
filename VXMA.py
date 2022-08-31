@@ -5,7 +5,7 @@ import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
 import math 
-from ta.trend import adx , macd_diff, sma_indicator
+from ta.trend import adx , macd_diff, sma_indicator , adx_pos , adx_neg
 import configparser
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -27,9 +27,9 @@ rsi = int(RSI_Period)
 AOL = int(LengthAO)
 
 #standard TA weighing
-RSI_W = 20
-ADX_W = 10
-VXMA_W = 40
+RSI_W = 15
+ADX_W = 20
+VXMA_W = 35
 MACD_W = 20
 SMA200_W = 10
 bulline = 6
@@ -60,6 +60,8 @@ def alphatrend(df,atr_p,atr_m,rsi):
     df['atr'] = ta.sma(ta.true_range(df['High'],df['Low'],df['Close']),atr_p)
     df['rsi'] = ta.rsi(df['Close'],rsi)
     df['adx'] = adx(df['High'],df['Low'],df['Close'])
+    df['adx_pos'] = adx_pos(df['High'],df['Low'],df['Close'])
+    df['adx_neg'] = adx_neg(df['High'],df['Low'],df['Close'])
     df['macd'] = macd_diff(df['Close'])
     df['sma_200'] = sma_indicator(df['Close'],200)
     df['downT'] = 0.0
@@ -158,11 +160,16 @@ def vxma(df):
 
 def benchmarking(df):
     df['score'] = 0.0
+    adxx = 0
     for current in range(1, len(df.index)):
         previous = current - 1
         before = current -2
         macd = (10 if float(df['macd'][current]) > 0 else 0)
-        adx = (10 if float(df['adx'][current]) > 25 and float(df['adx'][current]) > float(df['adx'][previous])  else 0)
+        if df['adx'][current] > 25 and df['adx_pos'][current] > df['adx_neg'][current]:
+            adxx = 10
+        elif df['adx'][current] > 25 and df['adx_pos'][current] < df['adx_neg'][current]:
+            adxx = 0
+        else: adxx = 5
         sma = (10 if float(df['sma_200'][current]) < float(df['Close'][current]) else 0)
         rsi = float(df['rsi'][current])/10
         if df['vxma'][current] > df['vxma'][previous]:
@@ -170,7 +177,7 @@ def benchmarking(df):
         elif df['vxma'][current] < df['vxma'][previous]:
             vxda = 0
         else: vxda = 5
-        df['score'][current] = ((macd*MACD_W)/100 + (adx*ADX_W)/100 + (sma*SMA200_W)/100 + (rsi*RSI_W)/100 + (vxda*VXMA_W)/100)
+        df['score'][current] = ((macd*MACD_W)/100 + (adxx*ADX_W)/100 + (sma*SMA200_W)/100 + (rsi*RSI_W)/100 + (vxda*VXMA_W)/100)
         if df['score'][current] > bulline and df['score'][previous] < bulline and df['score'][before] < bulline:
             df['buy'][current] = True
             df['sell'][current] = False
