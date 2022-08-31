@@ -1,0 +1,8 @@
+numpy
+pandas
+pandas-ta
+ccxt
+line_notify
+tabulate
+schedule
+ta
