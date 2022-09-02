@@ -1,3 +1,6 @@
+from ast import Global
+from glob import glob
+from pickle import GLOBAL
 from posixpath import split
 from typing import List
 from urllib.parse import MAX_CACHE_SIZE
@@ -360,7 +363,7 @@ def feed(symbol,timeframe):
     balance = exchange.fetch_balance()
     positions = balance['info']['positions']
     current_positions = [position for position in positions if float(position['positionAmt']) != 0]
-    status = pd.DataFrame(current_positions, columns=["symbol", "entryPrice","positionSide", "unrealizedProfit", "positionAmt", "initialMargin" ,"isolatedWallet"])   
+    status = pd.DataFrame(current_positions, columns=["symbol", "entryPrice","positionSide", "unrealizedProfit", "positionAmt", "initialMargin"])   
     previous = len(status.index)-1
     print('checking current position on hold...')
     print(tabulate(status, headers = 'keys', tablefmt = 'grid'))
@@ -409,12 +412,20 @@ def feed(symbol,timeframe):
             else:
                 print("already in position, nothing to do")
     return score , df
+
+aldynoti = False
   
 def main():
     symbolist = get_symbol()
     totalscore = []
+    global aldynoti
+    if str(local_time[14:-8]) == '02':
+        aldynoti = False
     for symbol in symbolist:
-        if local_time[11:-8] == '07:00':
+        if str(local_time[14:-8]) == '00' and not aldynoti:
+            notify.send(f'คู่เทรดที่น่าสนใจ\n{str(symbolist)}')
+            aldynoti = True
+        if str(local_time[11:-8]) == '07:00':
             get_tasks()
             break
         score, df = feed(symbol,tf)
