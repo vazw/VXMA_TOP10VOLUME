@@ -1,9 +1,6 @@
-from ast import Global
+from ast import Str
+from fileinput import close
 from glob import glob
-from pickle import GLOBAL
-from posixpath import split
-from typing import List
-from urllib.parse import MAX_CACHE_SIZE
 import ccxt
 import time
 import pandas as pd
@@ -20,8 +17,6 @@ import logging
 import mplfinance as mplf
 import VXMA as Indi
 
-seconds = time.time()
-local_time = time.ctime(seconds)
 logging.basicConfig(filename='log.log', format='%(asctime)s - %(message)s', level=logging.INFO)
 print('VXMA bot (Form Tradingview)By Vaz.')
 print('Donate XMR : 87tT3DZqi4mhGuJjEp3Yebi1Wa13Ne6J7RGi9QxU21FkcGGNtFHkfdyLjaPLRv8T2CMrz264iPYQ2dCsJs2MGJ27GnoJFbm')
@@ -41,6 +36,7 @@ USESL = config['STAT']['USE_SL']
 Tailing_SL = config['STAT']['Tailing_SL']
 MIN_BALANCE = config['STAT']['MIN_BALANCE']
 RISK = config['STAT']['LOST_PER_TARDE']
+Max_Size = str(config['STAT']['MAX_Margin_USE'])
 TPRR1 = config['STAT']['RiskReward_TP1']
 TPRR2 = config['STAT']['RiskReward_TP2']
 TPPer = int(config['STAT']['Percent_TP1'])
@@ -48,11 +44,12 @@ TPPer2 = int(config['STAT']['Percent_TP2'])
 Pivot = config['STAT']['Pivot_lookback']
 #STAT setting
 SYMBOL_NAME = list((config['BOT']['SYMBOL_NAME'].split(",")))
+Blacklist = list((config['BOT']['Blacklist'].split(",")))
 LEVERAGE = config['BOT']['LEVERAGE']
 TF = config['BOT']['TF']
 tf = TF
 leverage = int(LEVERAGE)
-BOT_NAME = 'VXMA_SMART'
+BOT_NAME = 'VXMA_Top10Volume'
 # API CONNECT
 exchange = ccxt.binance({
 "apiKey": API_KEY,
@@ -69,6 +66,8 @@ Sside = 'BOTH'
 Lside = 'BOTH'
 messmode = ''
 min_balance = 50
+if Max_Size[0]=='$' :
+    Max_Size = float(Max_Size[1:len(Max_Size)])
 
 currentMODE = exchange.fapiPrivate_get_positionside_dual()
 if currentMODE['dualSidePosition']:
@@ -115,8 +114,16 @@ def get_symbol():
         newsym.append(symbol)
     print(tabulate(symbols, headers = 'keys', tablefmt = 'grid'))
     newsym = list(dict.fromkeys(newsym))
+    if len(Blacklist) > 0:
+        for symbol in Blacklist:
+            symbo = symbol +'/USDT'
+            try:
+                newsym.remove(symbo)
+            except:
+                continue
     print(f'Interested : {newsym}')
     return newsym
+
 #clearconsol
 def clearconsol():
     if os.name == 'posix':
@@ -126,7 +133,7 @@ def clearconsol():
     return
 
 def candle(df,symbol):
-    data = df.tail(365)
+    data = df.tail(200)
     rcs = {"axes.labelcolor":"none",
             "axes.spines.left": False,
             "axes.spines.right": False,
@@ -140,7 +147,7 @@ def candle(df,symbol):
 
 #Position Sizing
 def buysize(df,balance,symbol):
-    last = len(df.index) - 1
+    last = len(df.index) -1
     freeusd = float(balance['free']['USDT'])
     swinglow = Indi.swinglow(df,Pivot)
     if RISK[0]=='$' :
@@ -154,7 +161,7 @@ def buysize(df,balance,symbol):
     return lot
 
 def sellsize(df,balance,symbol):
-    last = len(df.index) - 1
+    last = len(df.index) -1
     freeusd = float(balance['free']['USDT'])
     swinghigh = Indi.swinghigh(df,Pivot)
     if RISK[0]=='$' :
@@ -210,9 +217,9 @@ def callbackRate(df):
 
 #OpenLong=Buy
 def OpenLong(df,balance,symbol,lev):
-    print('Entry Long')
     amount = float(buysize(df,balance,symbol))
     ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+    logging.info(f'Entry Long @{ask} qmt:{amount}')
     try:
         exchange.set_leverage(lev,symbol)
     except:
@@ -220,10 +227,12 @@ def OpenLong(df,balance,symbol,lev):
         lever = exchange.fetch_positions_risk([symbol])
         for x in range(len(lever)):
             if (lever[x]['symbol']) == symbol:
-                leverrage = round(lever[x]['leverage'],0)
-                print(leverrage)
-                exchange.set_leverage(int(leverrage),symbol)
+                lev = round(lever[x]['leverage'],0)
+                print(lev)
+                exchange.set_leverage(int(lev),symbol)
                 break
+    if amount*ask > Max_Size*int(lev):
+        amount = Max_Size*int(lev)/ask    
     free = float(balance['free']['USDT'])
     amttp1 = amount*(TPPer/100)
     amttp2 = amount*(TPPer2/100)
@@ -260,14 +269,14 @@ def OpenLong(df,balance,symbol,lev):
         msg = "MARGIN-CALL!!!\nยอดเงินต่ำกว่าที่กำหนดไว้  : " + str(min_balance) + '\nยอดปัจจุบัน ' + str(round(free,2)) + ' USD\nบอทจะทำการยกเลิกการเข้า Position ทั้งหมด' 
     notify.send(msg)
     candle(df,symbol)
-    clearconsol()
+    #clearconsol()
     return
 
 #OpenShort=Sell
 def OpenShort(df,balance,symbol,lev):
-    print('Entry Short')
     amount = float(buysize(df,balance,symbol))
     bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    logging.info(f'Entry Short @{bid} qmt:{amount}')
     try:
         exchange.set_leverage(lev,symbol)
     except:
@@ -275,10 +284,12 @@ def OpenShort(df,balance,symbol,lev):
         lever = exchange.fetch_positions_risk([symbol])
         for x in range(len(lever)):
             if (lever[x]['symbol']) == symbol:
-                leverrage = round(lever[x]['leverage'],0)
-                print(leverrage)
-                exchange.set_leverage(int(leverrage),symbol)
+                lev = round(lever[x]['leverage'],0)
+                print(lev)
+                exchange.set_leverage(int(lev),symbol)
                 break
+    if amount*bid > Max_Size*int(lev):
+        amount = Max_Size*int(lev)/bid  
     free = float(balance['free']['USDT'])
     amttp1 = amount*(TPPer/100)
     amttp2 = amount*(TPPer2/100)
@@ -315,14 +326,14 @@ def OpenShort(df,balance,symbol,lev):
         msg = "MARGIN-CALL!!!\nยอดเงินต่ำกว่าที่กำหนดไว้  : " + str(min_balance) + '\nยอดปัจจุบัน ' + str(round(free,2)) + ' USD\nบอทจะทำการยกเลิกการเข้า Position ทั้งหมด' 
     notify.send(msg)
     candle(df,symbol)
-    clearconsol()
+    # clearconsol()
     return
 #CloseLong=Sell
-def CloseLong(df,balance,symbol,status):
-    print('Close Long')
-    amount = float(status["positionAmt"][len(status.index) -1])
-    upnl = float(status["unrealizedProfit"][len(status.index) -1])
+def CloseLong(df,balance,symbol,amt,pnl):
+    amount = abs(amt)
+    upnl = pnl
     bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    logging.info(f'Close Long @{bid} qmt:{amount}')
     order = exchange.createMarketOrder(symbol,'sell',amount,params={'positionSide':Lside})
     time.sleep(1)
     logging.info(order)
@@ -330,14 +341,15 @@ def CloseLong(df,balance,symbol,status):
     msg ="BINANCE:\n" + "BOT         : " + BOT_NAME + "\nCoin        : " + symbol + "\nStatus      : " + "CloseLong[SELL]" + "\nAmount    : " + str(amount) +"("+str(round((amount*bid),2))+" USDT)" + "\nPrice        :" + str(bid) + " USDT" + "\nRealized P/L: " + str(round(upnl,2)) + " USDT"  +"\nBalance   :" + str(round(total,2)) + " USDT"
     notify.send(msg)
     candle(df,symbol)
-    clearconsol()
+    # clearconsol()
     return
 #CloseShort=Buy
-def CloseShort(df,balance,symbol,status):
+def CloseShort(df,balance,symbol,amt,pnl):
     print('Close Short')
-    amount = abs(float(status["positionAmt"][len(status.index) -1] if status["symbol"][len(status.index) -1] == symbol else status["positionAmt"][len(status.index) -1]))
-    upnl = float(status["unrealizedProfit"][len(status.index) -1] if status["symbol"][len(status.index) -1] == symbol else status["positionAmt"][len(status.index) -1])
+    amount = abs(amt)
+    upnl = pnl
     ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+    logging.info(f'Close Short @{ask} qmt:{amount}')
     order = exchange.createMarketOrder(symbol,'buy',amount,params={'positionSide':Sside})
     time.sleep(1)
     logging.info(order)
@@ -345,90 +357,109 @@ def CloseShort(df,balance,symbol,status):
     msg ="BINANCE:\n" + "BOT         : " + BOT_NAME + "\nCoin        : " + symbol + "\nStatus      : " + "CloseShort[BUY]" + "\nAmount    : " + str(amount) +"("+ str(round((amount*ask),2))+" USDT)" + "\nPrice        :" + str(ask) + " USDT" + "\nRealized P/L: " + str(round(upnl,2)) + " USDT"  +"\nBalance   :" + str(round(total,2)) + " USDT"
     notify.send(msg)
     candle(df,symbol)
-    clearconsol()
+    # clearconsol()
     return
 
-def feed(symbol,timeframe):
-    bars = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since = None, limit = 1002)
+def fetchbars(symbol,timeframe):
+    posim = symbol.replace('/','')
+    bars = 2002
+    print(f"Benchmarking new bars for {symbol , timeframe , dt.now().isoformat()}")
+    try:
+        bars = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since = None, limit =bars)
+    except:
+        time.sleep(1)
+        bars = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since = None, limit =bars)
     df = pd.DataFrame(bars[:-1], columns=['timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).map(lambda x: x.tz_convert('Asia/Bangkok'))
     df = df.set_index('timestamp')
+    return df
+
+is_in_Long = False
+is_in_Short = False
+is_in_position = False
+
+def feed(df,symbol):
+    global is_in_Long, is_in_Short, is_in_position
+    posim = symbol.replace('/','')
     score , df = Indi.indicator(df)
-    print(df.tail(2))
-    print(f"Benchmarking new bars for {symbol , timeframe , dt.now().isoformat()}")
-    is_in_Long = False
-    is_in_Short = False
-    is_in_position = False
-    last = len(df.index) -1
     balance = exchange.fetch_balance()
     positions = balance['info']['positions']
     current_positions = [position for position in positions if float(position['positionAmt']) != 0]
     status = pd.DataFrame(current_positions, columns=["symbol", "entryPrice","positionSide", "unrealizedProfit", "positionAmt", "initialMargin"])   
-    previous = len(status.index)-1
     print('checking current position on hold...')
     print(tabulate(status, headers = 'keys', tablefmt = 'grid'))
-    posim = symbol.replace('/','')
-    amt = 0
+    amt = 0.0
+    upnl = 0.0
     print("checking for buy and sell signals")
     for i in status.index:
         if status['symbol'][i] == posim:
             amt = float(status['positionAmt'][i])
+            upnl = float(status['unrealizedProfit'][i])
             print(amt)
-        # NO Position
-        if not status.empty and amt != 0 :
-            is_in_position = True
-        else: 
-            is_in_position = False
-            is_in_Short = False
-            is_in_Long = False
-        # Long position
-        if is_in_position and amt > 0  :
-            is_in_Long = True
-            is_in_Short = False
-        # Short position
-        if is_in_position and amt < 0  :
-            is_in_Short = True
-            is_in_Long = False  
-        if df['buy'][last] :
-            print("changed to Bullish, buy")
-            if is_in_Short :
-                CloseShort(df,balance,symbol,status)
-            if not is_in_Long and USELONG:
-                exchange.cancel_all_orders(symbol)
-                time.sleep(1)
-                OpenLong(df,balance,symbol,leverage)
-                is_in_Long = True
-            else:
-                print("already in position, nothing to do")
-        if df['sell'][last]:
-            print("changed to Bearish, Sell")
-            if is_in_Long :
-                CloseLong(df,balance,symbol,status)
-            if not is_in_Short and USESHORT :
-                exchange.cancel_all_orders(symbol)
-                time.sleep(1)
-                OpenShort(df,balance,symbol,leverage)
-                is_in_Short = True
-            else:
-                print("already in position, nothing to do")
-    return score , df
-
-aldynoti = False
-  
-def main():
-    symbolist = get_symbol()
-    totalscore = []
-    global aldynoti
-    if str(local_time[14:-8]) == '02':
-        aldynoti = False
-    for symbol in symbolist:
-        if str(local_time[14:-8]) == '00' and not aldynoti:
-            notify.send(f'คู่เทรดที่น่าสนใจ\n{str(symbolist)}')
-            aldynoti = True
-        if str(local_time[11:-8]) == '07:00':
-            get_tasks()
             break
-        score, df = feed(symbol,tf)
+    # NO Position
+    if not status.empty and amt != 0 :
+        is_in_position = True
+    # Long position
+    if is_in_position and amt > 0  :
+        is_in_Long = True
+        is_in_Short = False
+    # Short position
+    elif is_in_position and amt < 0  :
+        is_in_Short = True
+        is_in_Long = False 
+    else: 
+        is_in_position = False
+        is_in_Short = False
+        is_in_Long = False 
+    last = len(df.index) -1
+    if df['buy'][last] :
+        print("changed to Bullish, buy")
+        if is_in_Short :
+            CloseShort(df,balance,symbol,amt,upnl)
+        if not is_in_Long and USELONG:
+            exchange.cancel_all_orders(symbol)
+            time.sleep(1)
+            OpenLong(df,balance,symbol,leverage)
+            is_in_Long = True
+        else:
+            print("already in position, nothing to do")
+    if df['sell'][last]:
+        print("changed to Bearish, Sell")
+        if is_in_Long :
+            CloseLong(df,balance,symbol,amt,upnl)
+        if not is_in_Short and USESHORT :
+            exchange.cancel_all_orders(symbol)
+            time.sleep(1)
+            OpenShort(df,balance,symbol,leverage)
+            is_in_Short = True
+        else:
+            print("already in position, nothing to do")
+    return score , df
+    
+aldynoti = False
+aldynotiday = False
+def main():
+    totalscore = []
+    global aldynoti, aldynotiday
+    seconds = time.time()
+    local_time = time.ctime(seconds)
+    if str(local_time[14:-9]) == '3':
+        aldynoti = False
+        aldynotiday = False
+    if str(local_time[11:-11]) == '07' and not aldynotiday:
+        get_tasks()
+        aldynotiday = True
+        aldynoti = True        
+    if str(local_time[14:-9]) == '0' and not aldynoti:
+        balance = exchange.fetch_balance()    
+        total = round(float(balance['total']['USDT']),2)
+        notify.send(f':D\nTotal Balance : {total} USDT')
+        aldynoti = True
+    symbolist = get_symbol()
+    for symbol in symbolist:
+        data = fetchbars(symbol,tf)
+        score, df = feed(data,symbol)
         score = round(score,1)
         print(symbol,f" Score : {score}/10")
         totalscore.append(f'{symbol} : {score}/10')
@@ -438,7 +469,8 @@ def get_dailytasks():
     symbolist = get_symbol()
     totalscore = []
     for symbol in symbolist:
-        score, df = feed(symbol,'1d')
+        data = fetchbars(symbol,'1d')
+        score, df = feed(data,symbol)
         score = round(score,1)
         print(symbol,f" Score : {score}/10")
         totalscore.append(f'{symbol} : {score}/10')
