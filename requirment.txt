@@ -5,4 +5,6 @@ ccxt
 line_notify
 tabulate
 schedule
+mplfinance
 ta
+backtesting

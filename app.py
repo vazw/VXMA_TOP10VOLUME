@@ -83,7 +83,7 @@ if MIN_BALANCE[0]=='$':
     min_balance=float(MIN_BALANCE[1:len(MIN_BALANCE)])
     print("MIN_BALANCE=",min_balance)
 
-wellcome = 'VXMA Bot Started :\n' + messmode + '\nTrading pair : ' + str(SYMBOL_NAME) + '\nTimeframe : ' + str(TF) + '\nLeverage : ' + str(LEVERAGE) +'\nBasic Setting\n----------\nRisk : ' + str(RISK) + '\nRisk:Reward : ' + str(TPRR1) + '\nBot Will Stop Entry when balance < ' + str(min_balance) + '\nGOODLUCK'
+wellcome = 'VXMA Bot Started :\n' + messmode + '\nTrading pair : ' + str(SYMBOL_NAME) + '\nTimeframe : ' + str(TF) +'\nBasic Setting\n----------\nRisk : ' + str(RISK) + '\nBot Will Stop Entry when balance < ' + str(min_balance) + '\nGOODLUCK'
 notify.send(wellcome)
 
 def get_symbol():
