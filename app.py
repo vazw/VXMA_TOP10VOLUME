@@ -1,5 +1,3 @@
-from cmath import log
-from turtle import delay
 import ccxt
 import time
 import pandas as pd
