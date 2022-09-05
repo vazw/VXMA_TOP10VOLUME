@@ -1,4 +1,5 @@
 from cmath import log
+from turtle import delay
 import ccxt
 import time
 import pandas as pd
@@ -22,6 +23,7 @@ print('Donate XMR : 87tT3DZqi4mhGuJjEp3Yebi1Wa13Ne6J7RGi9QxU21FkcGGNtFHkfdyLjaPL
 config = configparser.ConfigParser()
 config.read('config.ini')
 #key setting
+timedelay = config['KEY']['time_delay']
 API_KEY = config['KEY']['API_KEY']
 API_SECRET = config['KEY']['API_SECRET']
 LINE_TOKEN = config['KEY']['LINE_TOKEN']
@@ -56,7 +58,8 @@ exchange = ccxt.binance({
 'options': {
 'defaultType': 'future'
 },
-'enableRateLimit': True
+'enableRateLimit': True,
+'adjustForTimeDifference': True
 })
 
 exchange.precisionMode = ccxt.DECIMAL_PLACES
@@ -92,10 +95,10 @@ else:
     
 if max_margin[0]=='$' :
     max_margin = float(max_margin[1:len(max_margin)])
-    print(f'Bot จะใช้วงเงิน : {max_margin}$')
+    print(f'Margin Allow : {max_margin}$')
 else:
     max_margin = float(max_margin)
-    print(f'Bot จะใช้วงเงิน : {max_margin}$')
+    print(f'Margin Allow : {max_margin}$')
 
 wellcome = 'VXMA Bot Started :\n' + messmode + '\nTrading pair : ' + str(SYMBOL_NAME) + '\nTimeframe : ' + str(TF) +'\nBasic Setting\n----------\nRisk : ' + str(RISK) + '\nBot Will Stop Entry when balance < ' + str(min_balance) + '\nGOODLUCK'
 notify.send(wellcome)
@@ -221,9 +224,9 @@ def RRTP(df,symbol,direction,step):
     else :
         swinghigh = Indi.swinghigh(df,Pivot)
         if step == 1 :
-            target = bid *(1-((swinghigh-bid)/bid)*float(TPRR1))
+            target = bid *(1-((float(swinghigh)-bid)/bid)*float(TPRR1))
         if step == 2 :
-            target = bid *(1-((swinghigh-bid)/bid)*float(TPRR2))    
+            target = bid *(1-((float(swinghigh)-bid)/bid)*float(TPRR2))    
     return target
 
 def RR1(df,symbol,direction):
@@ -305,7 +308,7 @@ def OpenLong(df,balance,symbol,lev):
             logging.info(orderTP)
             logging.info(orderTP2)
         time.sleep(1)
-        margin=ask*amount/lev
+        margin=ask*amount/int(lev)
         total = float(balance['total']['USDT'])
         msg ="BINANCE:\n" + "BOT         : " + BOT_NAME + "\nCoin        : " + symbol + "\nStatus      : " + "OpenLong[BUY]" + "\nAmount    : " + str(amount) +"("+str(round((amount*ask),2))+" USDT)" + "\nPrice        :" + str(ask) + " USDT" + str(round(margin,2))+  " USDT"+ "\nBalance   :" + str(round(total,2)) + " USDT"
     else :
@@ -368,9 +371,9 @@ def OpenShort(df,balance,symbol,lev):
             orderTP2 = exchange.create_order(symbol,'TAKE_PROFIT_MARKET','buy',amttp2,float(RRTP(df,symbol,False,2)),params={'stopPrice':float(RRTP(df,symbol,False,2)),'triggerPrice':float(RRTP(df,symbol,False,2)),'positionSide':Sside})
             logging.info(orderTP2)
         time.sleep(1)
-        margin=bid*amount/lev
+        margin=bid*amount/int(lev)
         total = float(balance['total']['USDT'])
-        msg ="BINANCE:\n" + "BOT         : " + BOT_NAME + "\nCoin        : " + symbol + "\nStatus      : " + "OpenShort[SELL]" + "\nAmount    : " + str(amount) +"("+str(round((amount*bid),2))+" USDT)" + "\nPrice        :" + str(bid) + " USDT" + str(round(margin,2))+  " USDT"+ "\nBalance   :" + str(round(total,2)) + " USDT"
+        msg ="BINANCE:\nBOT         : " + BOT_NAME + "\nCoin        : " + symbol + "\nStatus      : " + "OpenShort[SELL]" + "\nAmount    : " + str(amount) +"("+str(round((amount*bid),2))+" USDT)" + "\nPrice        :" + str(bid) + " USDT" + str(round(margin,2))+  " USDT"+ "\nBalance   :" + str(round(total,2)) + " USDT"
     else :
         msg = "MARGIN-CALL!!!\nยอดเงินต่ำกว่าที่กำหนดไว้  : " + str(min_balance) + '\nยอดปัจจุบัน ' + str(round(free,2)) + ' USD\nบอทจะทำการยกเลิกการเข้า Position ทั้งหมด' 
     notify.send(msg)
@@ -465,7 +468,7 @@ def feed(df,symbol):
         margin += float(status['initialMargin'][i])
     print(f'Margin Used : {margin}')
     if margin > max_margin:
-        notify.send(f'Margin ที่ใช้สูงเกินไปแล้ว\nMargin : {margin}\nที่กำหนดไว้ : {max_margin}')
+        notify.send(f'Margin ที่ใช้สูงเกินไปแล้ว\nMargin : {margin}\nที่กำหนดไว้ : {max_margin}',sticker_id=17857, package_id=1070)
     print("checking for buy and sell signals")
     for i in status.index:
         if status['symbol'][i] == posim:
@@ -511,6 +514,7 @@ def feed(df,symbol):
             is_in_Short = True
         else:
             print("already in position, nothing to do")
+    time.sleep(2)
     return 
     
 aldynoti = False
@@ -534,7 +538,7 @@ def main():
             time.sleep(2)
             balance = exchange.fetch_balance()    
         total = round(float(balance['total']['USDT']),2)
-        notify.send(f':D\nTotal Balance : {total} USDT')
+        notify.send(f'Total Balance : {total} USDT',sticker_id=10863, package_id=789)
         aldynoti = True
     symbolist = get_symbol()
     for symbol in symbolist:
@@ -543,7 +547,7 @@ def main():
         feed(df,symbol)
         print(f"{symbol} is {score}")
         totalscore.append(f'{symbol} : {score}')
-        time.sleep(1/2)
+        time.sleep(10)
     return totalscore
 
 def get_dailytasks():
@@ -554,8 +558,10 @@ def get_dailytasks():
         # score , df = Indi.indicator(df)
         data1 = fetchbars(symbol,'1d')
         score1, df1 = Indi.indicator(data1)
+        time.sleep(2)
         data2 = fetchbars(symbol,'6h')
         score2, df2 = Indi.indicator(data2)
+        time.sleep(2)
         data3 = fetchbars(symbol,'1h')
         score3, df3 = Indi.indicator(data3)
         try:
@@ -566,20 +572,22 @@ def get_dailytasks():
         print(symbol,f"Long_Term : {score1} , Mid_Term : {score2} , Short_Term : {score3}")
         candle(df1,symbol,'1d')
         candle(df3,symbol,'1h')
-        dfday = dfday.append(pd.Series([symbol, ask, score1, score2, score3],index=daycollum),ignore_index=True)   
+        dfday = dfday.append(pd.Series([symbol, ask, score1, score2, score3],index=daycollum),ignore_index=True) 
+        time.sleep(5)  
     return  dfday
 
 def get_tasks():
     data = get_dailytasks()
-    print(data)
+    todays = str(data)
+    logging.info(f'{todays}')
     data = data.set_index('Symbol')
     data.drop(['Mid-Term','LastPirce'],axis=1,inplace=True)
     msg = str(data)
-    notify.send(f'คู่เทรดที่น่าสนใจในวันนี้\n{msg}') 
+    notify.send(f'คู่เทรดที่น่าสนใจในวันนี้\n{msg}',sticker_id=1990, package_id=446) 
     
 if __name__ == "__main__":
     while True:
-        time.sleep(1)
+        time.sleep(int(timedelay))
         main()
 
             
