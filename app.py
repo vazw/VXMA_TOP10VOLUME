@@ -1,3 +1,4 @@
+from cmath import log
 import ccxt
 import time
 import pandas as pd
@@ -14,7 +15,7 @@ import logging
 import mplfinance as mplf
 import VXMA as Indi
 
-logging.basicConfig(filename='log.log', format='%(asctime)s - %(message)s', level=logging.INFO)
+logging.basicConfig(filename='log.log', format='%(asctime)s - %(message)s', level=logging.DEBUG)
 print('VXMA bot (Form Tradingview)By Vaz.')
 print('Donate XMR : 87tT3DZqi4mhGuJjEp3Yebi1Wa13Ne6J7RGi9QxU21FkcGGNtFHkfdyLjaPLRv8T2CMrz264iPYQ2dCsJs2MGJ27GnoJFbm')
 #call config
@@ -64,17 +65,12 @@ Sside = 'BOTH'
 Lside = 'BOTH'
 messmode = ''
 min_balance = 50
-if Max_Size[0]=='$' :
-    Max_Size = float(Max_Size[1:len(Max_Size)])
-else:
-    Max_Size = float(Max_Size)
-    
-if max_margin[0]=='$' :
-    max_margin = float(max_margin[1:len(max_margin)])
-else:
-    max_margin = float(max_margin)
 
-currentMODE = exchange.fapiPrivate_get_positionside_dual()
+try:
+    currentMODE = exchange.fapiPrivate_get_positionside_dual()
+except:
+    time.sleep(1)
+    currentMODE = exchange.fapiPrivate_get_positionside_dual()
 if currentMODE['dualSidePosition']:
     print('You are in Hedge Mode')
     Sside = 'SHORT'
@@ -87,6 +83,19 @@ else:
 if MIN_BALANCE[0]=='$':
     min_balance=float(MIN_BALANCE[1:len(MIN_BALANCE)])
     print("MIN_BALANCE=",min_balance)
+if Max_Size[0]=='$' :
+    Max_Size = float(Max_Size[1:len(Max_Size)])
+    print(f'Max_Margin/Trade: {Max_Size}$')
+else:
+    Max_Size = float(Max_Size)
+    print(f'Max_Margin/Trade: {Max_Size}$')
+    
+if max_margin[0]=='$' :
+    max_margin = float(max_margin[1:len(max_margin)])
+    print(f'Bot จะใช้วงเงิน : {max_margin}$')
+else:
+    max_margin = float(max_margin)
+    print(f'Bot จะใช้วงเงิน : {max_margin}$')
 
 wellcome = 'VXMA Bot Started :\n' + messmode + '\nTrading pair : ' + str(SYMBOL_NAME) + '\nTimeframe : ' + str(TF) +'\nBasic Setting\n----------\nRisk : ' + str(RISK) + '\nBot Will Stop Entry when balance < ' + str(min_balance) + '\nGOODLUCK'
 notify.send(wellcome)
@@ -98,7 +107,7 @@ def get_symbol():
     try:
         market = exchange.fetchTickers(params={'type':'future'})
     except:
-        time.sleep(1)
+        time.sleep(2)
         market = exchange.fetchTickers(params={'type':'future'})
     if len(SYMBOL_NAME) > 0:
         for i in SYMBOL_NAME:
@@ -167,11 +176,12 @@ def buysize(df,balance,symbol):
         risk = (percent/100)*freeusd
     amount = abs(risk  / (df['Close'][last] - float(swinglow)))
     try:
-        qty_precision = exchange.markets[symbol]['precision']['amount']
+        qty_precision = exchange.amount_to_precision(symbol, amount)
     except:
-        time.sleep(1)
-        qty_precision = exchange.markets[symbol]['precision']['amount']
-    lot = round(amount,qty_precision)
+        time.sleep(2)
+        exchange.load_markets()
+        qty_precision = exchange.amount_to_precision(symbol, amount)
+    lot = qty_precision
     return lot
 
 def sellsize(df,balance,symbol):
@@ -185,11 +195,12 @@ def sellsize(df,balance,symbol):
         risk = (percent/100)*freeusd
     amount = abs(risk  / (float(swinghigh) - df['Close'][last]))
     try:
-        qty_precision = exchange.markets[symbol]['precision']['amount']
+        qty_precision = exchange.amount_to_precision(symbol, amount)
     except:
-        time.sleep(1)
-        qty_precision = exchange.markets[symbol]['precision']['amount']
-    lot = round(amount,qty_precision)
+        time.sleep(2)
+        exchange.load_markets()
+        qty_precision = exchange.amount_to_precision(symbol, amount)
+    lot = qty_precision
     return lot
 
 #TP with Risk:Reward    
@@ -197,7 +208,7 @@ def RRTP(df,symbol,direction,step):
     try:
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
-        time.sleep(1)
+        time.sleep(2)
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     ask = float(info['askPrice'])
     bid = float(info['bidPrice'])
@@ -219,7 +230,7 @@ def RR1(df,symbol,direction):
     try:
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
-        time.sleep(1)
+        time.sleep(2)
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     ask = float(info['askPrice'])
     bid = float(info['bidPrice'])
@@ -247,7 +258,7 @@ def OpenLong(df,balance,symbol,lev):
     try:
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
-        time.sleep(1)
+        time.sleep(2)
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     ask = float(info['askPrice'])
     logging.info(f'Entry Long @{ask} qmt:{amount}')
@@ -310,7 +321,7 @@ def OpenShort(df,balance,symbol,lev):
     try:
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
-        time.sleep(1)
+        time.sleep(2)
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     bid = float(info['bidPrice'])
     logging.info(f'Entry Short @{bid} qmt:{amount}')
@@ -373,14 +384,14 @@ def CloseLong(df,balance,symbol,amt,pnl):
     try:
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
-        time.sleep(1)
+        time.sleep(2)
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     bid = float(info['bidPrice'])
     logging.info(f'Close Long @{bid} qmt:{amount}')
     try:
         order = exchange.createMarketOrder(symbol,'sell',amount,params={'positionSide':Lside})
     except:
-        time.sleep(1)
+        time.sleep(2)
         order = exchange.createMarketOrder(symbol,'sell',amount,params={'positionSide':Lside})
     time.sleep(1)
     logging.info(order)
@@ -398,7 +409,7 @@ def CloseShort(df,balance,symbol,amt,pnl):
     try:
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
-        time.sleep(1)
+        time.sleep(2)
         info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     ask = float(info['askPrice'])
     logging.info(f'Close Short @{ask} qmt:{amount}')
@@ -439,6 +450,7 @@ def feed(df,symbol):
     try:    
         balance = exchange.fetch_balance()
     except:
+        exchange.load_markets()
         time.sleep(2)
         balance = exchange.fetch_balance()
     positions = balance['info']['positions']
@@ -516,7 +528,11 @@ def main():
         aldynotiday = True
         aldynoti = True        
     if str(local_time[14:-9]) == '0' and not aldynoti:
-        balance = exchange.fetch_balance()    
+        try:
+            balance = exchange.fetch_balance()    
+        except:
+            time.sleep(2)
+            balance = exchange.fetch_balance()    
         total = round(float(balance['total']['USDT']),2)
         notify.send(f':D\nTotal Balance : {total} USDT')
         aldynoti = True
@@ -527,6 +543,7 @@ def main():
         feed(df,symbol)
         print(f"{symbol} is {score}")
         totalscore.append(f'{symbol} : {score}')
+        time.sleep(1/2)
     return totalscore
 
 def get_dailytasks():
@@ -562,6 +579,7 @@ def get_tasks():
     
 if __name__ == "__main__":
     while True:
+        time.sleep(1)
         main()
 
             
