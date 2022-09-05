@@ -31,9 +31,10 @@ USESHORT = config['STAT']['Open_SHORT']
 USETP = config['STAT']['USE_TP']
 USESL = config['STAT']['USE_SL']
 Tailing_SL = config['STAT']['Tailing_SL']
+max_margin = str(config['STAT']['Free_Balance'])
 MIN_BALANCE = config['STAT']['MIN_BALANCE']
 RISK = config['STAT']['LOST_PER_TARDE']
-Max_Size = str(config['STAT']['MAX_Margin_USE'])
+Max_Size = str(config['STAT']['MAX_Margin_USE_Per_Trade'])
 TPRR1 = config['STAT']['RiskReward_TP1']
 TPRR2 = config['STAT']['RiskReward_TP2']
 TPPer = int(config['STAT']['Percent_TP1'])
@@ -67,6 +68,11 @@ if Max_Size[0]=='$' :
     Max_Size = float(Max_Size[1:len(Max_Size)])
 else:
     Max_Size = float(Max_Size)
+    
+if max_margin[0]=='$' :
+    max_margin = float(max_margin[1:len(max_margin)])
+else:
+    max_margin = float(max_margin)
 
 currentMODE = exchange.fapiPrivate_get_positionside_dual()
 if currentMODE['dualSidePosition']:
@@ -189,12 +195,12 @@ def sellsize(df,balance,symbol):
 #TP with Risk:Reward    
 def RRTP(df,symbol,direction,step):
     try:
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
         time.sleep(1)
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
+    ask = float(info['askPrice'])
+    bid = float(info['bidPrice'])
     if direction :
         swinglow = Indi.swinglow(df,Pivot)
         if step == 1 :
@@ -211,12 +217,12 @@ def RRTP(df,symbol,direction,step):
 
 def RR1(df,symbol,direction):
     try:
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
         time.sleep(1)
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
+    ask = float(info['askPrice'])
+    bid = float(info['bidPrice'])
     if direction :
         swinglow = Indi.swinglow(df,Pivot)
         target = ask *(1+((ask-float(swinglow))/ask)*1)
@@ -239,15 +245,16 @@ def callbackRate(df):
 def OpenLong(df,balance,symbol,lev):
     amount = float(buysize(df,balance,symbol))
     try:
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
         time.sleep(1)
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
+    ask = float(info['askPrice'])
     logging.info(f'Entry Long @{ask} qmt:{amount}')
     try:
         exchange.set_leverage(lev,symbol)
     except:
-        time.sleep(1)
+        time.sleep(2)
         lever = exchange.fetch_positions_risk([symbol])
         for x in range(len(lever)):
             if (lever[x]['symbol']) == symbol:
@@ -301,15 +308,16 @@ def OpenLong(df,balance,symbol,lev):
 def OpenShort(df,balance,symbol,lev):
     amount = float(buysize(df,balance,symbol))
     try:
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
         time.sleep(1)
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
+    bid = float(info['bidPrice'])
     logging.info(f'Entry Short @{bid} qmt:{amount}')
     try:
         exchange.set_leverage(lev,symbol)
     except:
-        time.sleep(1)
+        time.sleep(2)
         lever = exchange.fetch_positions_risk([symbol])
         for x in range(len(lever)):
             if (lever[x]['symbol']) == symbol:
@@ -363,10 +371,11 @@ def CloseLong(df,balance,symbol,amt,pnl):
     amount = abs(amt)
     upnl = pnl
     try:
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
         time.sleep(1)
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
+    bid = float(info['bidPrice'])
     logging.info(f'Close Long @{bid} qmt:{amount}')
     try:
         order = exchange.createMarketOrder(symbol,'sell',amount,params={'positionSide':Lside})
@@ -387,10 +396,11 @@ def CloseShort(df,balance,symbol,amt,pnl):
     amount = abs(amt)
     upnl = pnl
     try:
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
     except:
         time.sleep(1)
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        info = exchange.fetchBidsAsks([symbol])[symbol]['info']
+    ask = float(info['askPrice'])
     logging.info(f'Close Short @{ask} qmt:{amount}')
     try:
         order = exchange.createMarketOrder(symbol,'buy',amount,params={'positionSide':Sside})
@@ -412,7 +422,7 @@ def fetchbars(symbol,timeframe):
     try:
         bars = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since = None, limit =bars)
     except:
-        time.sleep(1)
+        time.sleep(2)
         bars = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since = None, limit =bars)
     df = pd.DataFrame(bars[:-1], columns=['timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).map(lambda x: x.tz_convert('Asia/Bangkok'))
@@ -429,7 +439,7 @@ def feed(df,symbol):
     try:    
         balance = exchange.fetch_balance()
     except:
-        time.sleep(1)
+        time.sleep(2)
         balance = exchange.fetch_balance()
     positions = balance['info']['positions']
     current_positions = [position for position in positions if float(position['positionAmt']) != 0]
@@ -438,6 +448,12 @@ def feed(df,symbol):
     print(tabulate(status, headers = 'keys', tablefmt = 'grid'))
     amt = 0.0
     upnl = 0.0
+    margin = 0.0
+    for i in status.index:
+        margin += float(status['initialMargin'][i])
+    print(f'Margin Used : {margin}')
+    if margin > max_margin:
+        notify.send(f'Margin ที่ใช้สูงเกินไปแล้ว\nMargin : {margin}\nที่กำหนดไว้ : {max_margin}')
     print("checking for buy and sell signals")
     for i in status.index:
         if status['symbol'][i] == posim:
@@ -528,10 +544,7 @@ def get_dailytasks():
         try:
             ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
         except:
-            time.sleep(1)
-            ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
-        else:
-            time.sleep(10)
+            time.sleep(2)
             ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
         print(symbol,f"Long_Term : {score1} , Mid_Term : {score2} , Short_Term : {score3}")
         candle(df1,symbol,'1d')
