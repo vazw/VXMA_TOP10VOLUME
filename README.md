@@ -15,36 +15,40 @@ What's this version do?
 |-v2.0
 |- Avoid Large Position amount
 |- Input Max margin use
-|- แจ้งเตือนยอดเงินทุกชั่วโมง
+|- แจ้งเตือนยอดเงินทุกชั่วโมง \ Hourly notify
 |-v.TOP10 = ระบบจะเลือกคู่เทรดที่มีวอลุ่มสูงสุดให้ และถ้าชอบตัวไหนเป็นพิเศษสามารถเพิ่มให้บอทได้ที่ไฟล์ config ได้เลย
 |- 			+ ระบบแจ้งเตือนทุกเช้า เมื่อแท่งวันปิด
 |-      +บอทจะใช้ leverage ที่เคยตั้งไว้ หรือสูงสุด
+|-v.TOP10 = This Strategy will pick top 10 trading volume form exchange and use VXMA indicator for buy sell signall
+|-    + there is notify everyday's morning at 07:00 am
+|-  Please use with your own risk.
 ```
-##สามารถตั้งค่าได้ดังต่อไปนี้นี้
+##สามารถตั้งค่าได้ดังต่อไปนี้นี้ \ this is this config.
 ```
 [KEY]
-API_KEY = 
-API_SECRET = 
-LINE_TOKEN = 
+API_KEY = Binance_api_key
+API_SECRET = Binance_secret_key
+LINE_TOKEN = Line_Notiytoken
 [STAT]
-OPEN_LONG = True
-OPEN_SHORT = True
-USE_TP = True
-USE_SL = True
-Tailing_SL = True
-MIN_BALANCE = $50
-LOST_PER_TARDE = 0.5
-MAX_Margin_USE = $3
-RiskReward_TP1 = 3
+OPEN_LONG = True เปิด False ปิด
+OPEN_SHORT = True เปิด False ปิด
+USE_TP = True  เปิด False ปิด
+USE_SL = True เปิด False ปิด
+Tailing_SL = True  เปิด False ปิด
+Free_Balance = $100 จำนวนเงินที่บอทสามารถใช้ได้
+MIN_BALANCE = $50 บอทจะยกเลิกการเข้า order หากเงินต่ำกว่า MIN_BALANCE 
+LOST_PER_TARDE = 0.5 ถ้าอยากใช้ % ให้ใช้ตัวเลขธรรมดา 	 LOST_PER_TARDE = 5 คือจำนวนเงินที่จะเสีย หากไปถึงจุด SL
+MAX_Margin_USE = $5 จำนวน Margin สูงสุดต่อไม้ ที่บอทจะเปิดได้
+RiskReward_TP1 = 3 RiskReward คำนวนระยะห่างจากจุด SL อัตโนมัด
 RiskReward_TP2 = 4.5
-Percent_TP1 = 50
+Percent_TP1 = 50 จำนวน % ที่จะออก TP
 Percent_TP2 = 50
-Pivot_lookback = 50
+Pivot_lookback = 50 ระยะแท่งเทียนการตรวจหา swinghigh low ย้อนหลังเพื่อหาจุด SL
 [BOT]
-SYMBOL_NAME = BTC,XMR
-Blacklist = ADA,1000SHIB,LUNA
-LEVERAGE = 125
-TF = 6h
+SYMBOL_NAME = BTC,XMR คู่เทรดที่สนใจ
+Blacklist = ADA,1000SHIB,LUNA คู่ที่เกลียด
+LEVERAGE = 125 lerverage สูงสุดที่บอทจะใช้
+TF = 6h timeframe ที่จะเล่น
 [TA]
 ATR_Period = 12
 ATR_Mutiply = 1.6
@@ -54,10 +58,10 @@ SUBHAG_LINEAR = 30
 SMOOTH = 30
 Andean_Oscillator = 30
 [weigh100]
-RSI_W = 20
-ADX_W = 20
-VXMA_W = 40
-MACD_W = 10
+RSI_W = 20 กำหนดน้ำหนักในการประเมินเทรน
+ADX_W = 20 โดยบวกลบกันให้ได้ 100
+VXMA_W = 40 ไม่มีผลกับการเข้า order
+MACD_W = 10 เพราะสัญญาณซื้อขายจะมาจาก VXMA เท่านั้น
 SMA200_W = 10
 ```
 ##LOST_PER_TARDE  
