@@ -39,7 +39,7 @@ Tailing_SL = True  เปิด False ปิด
 Free_Balance = $100 จำนวนเงินที่บอทสามารถใช้ได้
 MIN_BALANCE = $50 บอทจะยกเลิกการเข้า order หากเงินต่ำกว่า MIN_BALANCE 
 LOST_PER_TARDE = 0.5 ถ้าอยากใช้ % ให้ใช้ตัวเลขธรรมดา 	 LOST_PER_TARDE = 5 คือจำนวนเงินที่จะเสีย หากไปถึงจุด SL
-MAX_Margin_USE = $5 จำนวน Margin สูงสุดต่อไม้ ที่บอทจะเปิดได้
+MAX_Margin_USE_Per_Trade = $5 จำนวน Margin สูงสุดต่อไม้ ที่บอทจะเปิดได้
 RiskReward_TP1 = 3 RiskReward คำนวนระยะห่างจากจุด SL อัตโนมัด
 RiskReward_TP2 = 4.5
 Percent_TP1 = 50 จำนวน % ที่จะออก TP
