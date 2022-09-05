@@ -184,17 +184,28 @@ def benchmarking(df):
         else:
             df['buy'][current] = False
             df['sell'][current] = False 
-    score = float(df['score'][current])
-    return score , df
+    return df
 
 
 #Build Data Pack for VXMA
 def indicator(df):
+    scr = ''
     df['adx'] = adx(df['High'],df['Low'],df['Close'])
     df['adx_pos'] = adx_pos(df['High'],df['Low'],df['Close'])
     df['adx_neg'] = adx_neg(df['High'],df['Low'],df['Close'])
     df['macd'] = macd_diff(df['Close'])
     df['sma_200'] = sma_indicator(df['Close'],200)
     vxma(df)
-    score , df =  benchmarking(df)
-    return score , df
+    benchmarking(df)
+    score = float(df['score'][len(df.index)-1])
+    if score > 8 :
+        scr = 'Extreme-Bullish'
+    elif score > 6 :
+        scr = 'Bullish'
+    elif score < 4 :
+        scr = 'Bearish'
+    elif score < 2 :
+        scr = 'Extreme-Bearish'
+    else:
+        scr = 'Side-Way'
+    return scr , df

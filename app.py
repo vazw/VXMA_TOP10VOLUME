@@ -1,6 +1,3 @@
-from ast import Str
-from fileinput import close
-from glob import glob
 import ccxt
 import time
 import pandas as pd
@@ -68,6 +65,8 @@ messmode = ''
 min_balance = 50
 if Max_Size[0]=='$' :
     Max_Size = float(Max_Size[1:len(Max_Size)])
+else:
+    Max_Size = float(Max_Size)
 
 currentMODE = exchange.fapiPrivate_get_positionside_dual()
 if currentMODE['dualSidePosition']:
@@ -90,7 +89,11 @@ def get_symbol():
     symbols = pd.DataFrame()
     syms = []
     print('fecthing Symbol of Top 10 Volume...')
-    market = exchange.fetchTickers(params={'type':'future'})
+    try:
+        market = exchange.fetchTickers(params={'type':'future'})
+    except:
+        time.sleep(1)
+        market = exchange.fetchTickers(params={'type':'future'})
     if len(SYMBOL_NAME) > 0:
         for i in SYMBOL_NAME:
             symbo = i +'/USDT'
@@ -122,7 +125,7 @@ def get_symbol():
             except:
                 continue
     print(f'Interested : {newsym}')
-    return newsym
+    return newsym 
 
 #clearconsol
 def clearconsol():
@@ -132,17 +135,18 @@ def clearconsol():
         os.system('cls') 
     return
 
-def candle(df,symbol):
+def candle(df,symbol,tf):
     data = df.tail(200)
     rcs = {"axes.labelcolor":"none",
             "axes.spines.left": False,
             "axes.spines.right": False,
             "axes.titlesize": '20'}
+    titles = f'{symbol}_{tf}'
     color = mplf.make_marketcolors(up='green',down='red',volume='inherit',wick='white',edge='white')    
     s = mplf.make_mpf_style(base_mpf_style='nightclouds', rc=rcs ,marketcolors=color,y_on_right=True)
     vxmal = mplf.make_addplot(data.vxma,secondary_y=False,color='yellow')
-    mplf.plot(data,type='candle',title=symbol,addplot=vxmal, style=s,volume=True,savefig='candle.png',tight_layout=True)
-    notify.send(f'info : {symbol}',image_path=('./candle.png'))
+    mplf.plot(data,type='candle',title=titles,addplot=vxmal, style=s,volume=True,savefig='candle.png',tight_layout=True)
+    notify.send(f'info : {titles}',image_path=('./candle.png'))
     return 
 
 #Position Sizing
@@ -156,7 +160,11 @@ def buysize(df,balance,symbol):
         percent = float(RISK)
         risk = (percent/100)*freeusd
     amount = abs(risk  / (df['Close'][last] - float(swinglow)))
-    qty_precision = exchange.markets[symbol]['precision']['amount']
+    try:
+        qty_precision = exchange.markets[symbol]['precision']['amount']
+    except:
+        time.sleep(1)
+        qty_precision = exchange.markets[symbol]['precision']['amount']
     lot = round(amount,qty_precision)
     return lot
 
@@ -170,38 +178,50 @@ def sellsize(df,balance,symbol):
         percent = float(RISK)
         risk = (percent/100)*freeusd
     amount = abs(risk  / (float(swinghigh) - df['Close'][last]))
-    qty_precision = exchange.markets[symbol]['precision']['amount']
+    try:
+        qty_precision = exchange.markets[symbol]['precision']['amount']
+    except:
+        time.sleep(1)
+        qty_precision = exchange.markets[symbol]['precision']['amount']
     lot = round(amount,qty_precision)
     return lot
 
 #TP with Risk:Reward    
 def RRTP(df,symbol,direction,step):
+    try:
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    except:
+        time.sleep(1)
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
     if direction :
         swinglow = Indi.swinglow(df,Pivot)
         if step == 1 :
-            ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
             target = ask *(1+((ask-float(swinglow))/ask)*float(TPRR1))
         if step == 2 :
-            ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
             target = ask *(1+((ask-float(swinglow))/ask)*float(TPRR2))
     else :
         swinghigh = Indi.swinghigh(df,Pivot)
         if step == 1 :
-            bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
             target = bid *(1-((swinghigh-bid)/bid)*float(TPRR1))
         if step == 2 :
-            bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
             target = bid *(1-((swinghigh-bid)/bid)*float(TPRR2))    
     return target
 
 def RR1(df,symbol,direction):
+    try:
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    except:
+        time.sleep(1)
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
     if direction :
         swinglow = Indi.swinglow(df,Pivot)
-        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
         target = ask *(1+((ask-float(swinglow))/ask)*1)
     else :
         swinghigh = Indi.swinghigh(df,Pivot)
-        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
         target = bid *(1-((float(swinghigh)-bid)/bid)*1)
     return target
 
@@ -218,7 +238,11 @@ def callbackRate(df):
 #OpenLong=Buy
 def OpenLong(df,balance,symbol,lev):
     amount = float(buysize(df,balance,symbol))
-    ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+    try:
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+    except:
+        time.sleep(1)
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
     logging.info(f'Entry Long @{ask} qmt:{amount}')
     try:
         exchange.set_leverage(lev,symbol)
@@ -243,6 +267,7 @@ def OpenLong(df,balance,symbol,lev):
             logging.info(order)
         except ccxt.InsufficientFunds as e:
             logging.debug(e)
+            notify.send(e)
             return    
         if USESL :
             if currentMODE['dualSidePosition']:
@@ -268,14 +293,18 @@ def OpenLong(df,balance,symbol,lev):
     else :
         msg = "MARGIN-CALL!!!\nยอดเงินต่ำกว่าที่กำหนดไว้  : " + str(min_balance) + '\nยอดปัจจุบัน ' + str(round(free,2)) + ' USD\nบอทจะทำการยกเลิกการเข้า Position ทั้งหมด' 
     notify.send(msg)
-    candle(df,symbol)
+    candle(df,symbol,tf)
     #clearconsol()
     return
 
 #OpenShort=Sell
 def OpenShort(df,balance,symbol,lev):
     amount = float(buysize(df,balance,symbol))
-    bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    try:
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    except:
+        time.sleep(1)
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
     logging.info(f'Entry Short @{bid} qmt:{amount}')
     try:
         exchange.set_leverage(lev,symbol)
@@ -300,6 +329,7 @@ def OpenShort(df,balance,symbol,lev):
             logging.info(order)
         except ccxt.InsufficientFunds as e:
             logging.debug(e)
+            notify.send(e)
             return        
         if USESL :
             if currentMODE['dualSidePosition']:
@@ -325,22 +355,30 @@ def OpenShort(df,balance,symbol,lev):
     else :
         msg = "MARGIN-CALL!!!\nยอดเงินต่ำกว่าที่กำหนดไว้  : " + str(min_balance) + '\nยอดปัจจุบัน ' + str(round(free,2)) + ' USD\nบอทจะทำการยกเลิกการเข้า Position ทั้งหมด' 
     notify.send(msg)
-    candle(df,symbol)
+    candle(df,symbol,tf)
     # clearconsol()
     return
 #CloseLong=Sell
 def CloseLong(df,balance,symbol,amt,pnl):
     amount = abs(amt)
     upnl = pnl
-    bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    try:
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
+    except:
+        time.sleep(1)
+        bid = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['bidPrice'])
     logging.info(f'Close Long @{bid} qmt:{amount}')
-    order = exchange.createMarketOrder(symbol,'sell',amount,params={'positionSide':Lside})
+    try:
+        order = exchange.createMarketOrder(symbol,'sell',amount,params={'positionSide':Lside})
+    except:
+        time.sleep(1)
+        order = exchange.createMarketOrder(symbol,'sell',amount,params={'positionSide':Lside})
     time.sleep(1)
     logging.info(order)
     total = float(balance['total']['USDT'])
     msg ="BINANCE:\n" + "BOT         : " + BOT_NAME + "\nCoin        : " + symbol + "\nStatus      : " + "CloseLong[SELL]" + "\nAmount    : " + str(amount) +"("+str(round((amount*bid),2))+" USDT)" + "\nPrice        :" + str(bid) + " USDT" + "\nRealized P/L: " + str(round(upnl,2)) + " USDT"  +"\nBalance   :" + str(round(total,2)) + " USDT"
     notify.send(msg)
-    candle(df,symbol)
+    candle(df,symbol,tf)
     # clearconsol()
     return
 #CloseShort=Buy
@@ -348,20 +386,27 @@ def CloseShort(df,balance,symbol,amt,pnl):
     print('Close Short')
     amount = abs(amt)
     upnl = pnl
-    ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+    try:
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+    except:
+        time.sleep(1)
+        ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
     logging.info(f'Close Short @{ask} qmt:{amount}')
-    order = exchange.createMarketOrder(symbol,'buy',amount,params={'positionSide':Sside})
+    try:
+        order = exchange.createMarketOrder(symbol,'buy',amount,params={'positionSide':Sside})
+    except:
+        time.sleep(1)
+        order = exchange.createMarketOrder(symbol,'buy',amount,params={'positionSide':Sside})
     time.sleep(1)
     logging.info(order)
     total = float(balance['total']['USDT'])
     msg ="BINANCE:\n" + "BOT         : " + BOT_NAME + "\nCoin        : " + symbol + "\nStatus      : " + "CloseShort[BUY]" + "\nAmount    : " + str(amount) +"("+ str(round((amount*ask),2))+" USDT)" + "\nPrice        :" + str(ask) + " USDT" + "\nRealized P/L: " + str(round(upnl,2)) + " USDT"  +"\nBalance   :" + str(round(total,2)) + " USDT"
     notify.send(msg)
-    candle(df,symbol)
+    candle(df,symbol,tf)
     # clearconsol()
     return
 
 def fetchbars(symbol,timeframe):
-    posim = symbol.replace('/','')
     bars = 2002
     print(f"Benchmarking new bars for {symbol , timeframe , dt.now().isoformat()}")
     try:
@@ -380,9 +425,12 @@ is_in_position = False
 
 def feed(df,symbol):
     global is_in_Long, is_in_Short, is_in_position
-    posim = symbol.replace('/','')
-    score , df = Indi.indicator(df)
-    balance = exchange.fetch_balance()
+    posim = symbol.replace('/','')    
+    try:    
+        balance = exchange.fetch_balance()
+    except:
+        time.sleep(1)
+        balance = exchange.fetch_balance()
     positions = balance['info']['positions']
     current_positions = [position for position in positions if float(position['positionAmt']) != 0]
     status = pd.DataFrame(current_positions, columns=["symbol", "entryPrice","positionSide", "unrealizedProfit", "positionAmt", "initialMargin"])   
@@ -435,7 +483,7 @@ def feed(df,symbol):
             is_in_Short = True
         else:
             print("already in position, nothing to do")
-    return score , df
+    return 
     
 aldynoti = False
 aldynotiday = False
@@ -459,31 +507,46 @@ def main():
     symbolist = get_symbol()
     for symbol in symbolist:
         data = fetchbars(symbol,tf)
-        score, df = feed(data,symbol)
-        score = round(score,1)
-        print(symbol,f" Score : {score}/10")
-        totalscore.append(f'{symbol} : {score}/10')
+        score , df = Indi.indicator(data)
+        feed(df,symbol)
+        print(f"{symbol} is {score}")
+        totalscore.append(f'{symbol} : {score}')
     return totalscore
 
 def get_dailytasks():
     symbolist = get_symbol()
-    totalscore = []
+    daycollum = ['Symbol', 'LastPirce', 'Long-Term', 'Mid-Term', 'Short-Term']
+    dfday = pd.DataFrame(columns=daycollum)
     for symbol in symbolist:
-        data = fetchbars(symbol,'1d')
-        score, df = feed(data,symbol)
-        score = round(score,1)
-        print(symbol,f" Score : {score}/10")
-        totalscore.append(f'{symbol} : {score}/10')
-        candle(df,symbol)
-    msg = str(totalscore).replace(",","\n")
-    notify.send(f'คู่เทรดที่น่าสนใจในวันนี้\n{msg}')    
-    return totalscore
+        # score , df = Indi.indicator(df)
+        data1 = fetchbars(symbol,'1d')
+        score1, df1 = Indi.indicator(data1)
+        data2 = fetchbars(symbol,'6h')
+        score2, df2 = Indi.indicator(data2)
+        data3 = fetchbars(symbol,'1h')
+        score3, df3 = Indi.indicator(data3)
+        try:
+            ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        except:
+            time.sleep(1)
+            ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        else:
+            time.sleep(10)
+            ask = float(exchange.fetchBidsAsks([symbol])[symbol]['info']['askPrice'])
+        print(symbol,f"Long_Term : {score1} , Mid_Term : {score2} , Short_Term : {score3}")
+        candle(df1,symbol,'1d')
+        candle(df3,symbol,'1h')
+        dfday = dfday.append(pd.Series([symbol, ask, score1, score2, score3],index=daycollum),ignore_index=True)   
+    return  dfday
 
 def get_tasks():
-    responses = get_dailytasks()
-    for response in responses:
-        print(response)
-
+    data = get_dailytasks()
+    print(data)
+    data = data.set_index('Symbol')
+    data.drop(['Mid-Term','LastPirce'],axis=1,inplace=True)
+    msg = str(data)
+    notify.send(f'คู่เทรดที่น่าสนใจในวันนี้\n{msg}') 
+    
 if __name__ == "__main__":
     while True:
         main()
