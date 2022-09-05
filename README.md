@@ -26,6 +26,7 @@ What's this version do?
 ##สามารถตั้งค่าได้ดังต่อไปนี้นี้ \ this is this config.
 ```
 [KEY]
+time_delay = 60
 API_KEY = Binance_api_key
 API_SECRET = Binance_secret_key
 LINE_TOKEN = Line_Notiytoken
