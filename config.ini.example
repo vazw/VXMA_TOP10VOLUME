@@ -1,0 +1,39 @@
+[KEY]
+time_delay = 60
+API_KEY = 
+API_SECRET = 
+LINE_TOKEN = 
+[STAT]
+OPEN_LONG = True
+OPEN_SHORT = True
+USE_TP = True
+USE_SL = True
+Tailing_SL = True
+Free_Balance = $100
+MIN_BALANCE = $50
+LOST_PER_TARDE = 10
+MAX_Margin_USE_Per_Trade = $5
+RiskReward_TP1 = 3
+RiskReward_TP2 = 4.5
+Percent_TP1 = 50
+Percent_TP2 = 50
+Pivot_lookback = 50
+[BOT]
+SYMBOL_NAME = BTC,ETH,XMR
+Blacklist = ADA,1000SHIB,LUNA
+LEVERAGE = 125
+TF = 15m
+[TA]
+ATR_Period = 12
+ATR_Mutiply = 1.6
+RSI_Period = 25
+EMA_Fast = 30
+SUBHAG_LINEAR = 30
+SMOOTH = 30
+Andean_Oscillator = 30
+[weigh100]
+RSI_W = 20
+ADX_W = 20
+VXMA_W = 40
+MACD_W = 10
+SMA200_W = 10
